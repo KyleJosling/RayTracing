@@ -2,12 +2,14 @@
 .vs/
 bin/
 bin-int/
+build/
 
 # Files
 *.vcxproj
 *.vcxproj.user
 *.vcxproj.filters
 *.sln
+*.compile_commands.json
 
 # Exclude
 !vendor/bin
