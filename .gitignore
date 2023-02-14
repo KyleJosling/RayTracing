@@ -10,6 +10,8 @@ build/
 *.vcxproj.filters
 *.sln
 *.compile_commands.json
+*.swp
+*.swo
 
 # Exclude
 !vendor/bin
