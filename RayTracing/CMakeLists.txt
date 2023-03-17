@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_executable(raytracing
     src/Renderer.cpp
+    src/Camera.cpp
 	src/WalnutApp.cpp
 )
 
