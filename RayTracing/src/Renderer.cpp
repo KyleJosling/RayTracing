@@ -60,7 +60,8 @@ void Renderer::Render(const Scene &scene, const Camera &camera){
 glm::vec4 Renderer::TraceRay(const Scene &scene, const Ray &ray){
 
 
-    if (scene.Spheres.size() == 0) return glm::vec4(0, 0, 0, 1);
+    if (scene.Spheres.size() == 0)
+        return glm::vec4(0, 0, 0, 1);
 
 
 
@@ -71,29 +72,44 @@ glm::vec4 Renderer::TraceRay(const Scene &scene, const Ray &ray){
     // a -> origin of ray, b -> direction of ray
     // r is the radius of the sphere
 
-    const Sphere &sphere = scene.Spheres[0];
-    glm::vec3 origin = ray.Origin - sphere.Position;
+    const Sphere * closestSphere = nullptr;
+    float hitDistance = FLT_MAX;
 
+    for (const Sphere &sphere : scene.Spheres){
+
+        glm::vec3 origin = ray.Origin - sphere.Position;
+
+        // a, b, c how they appear in the quadratic formula
+        // float a = coord.x * coord.x + coord.y * coord.y + coord.z * coord.z; // This is just the dot product
+        float a = glm::dot(ray.Direction, ray.Direction);
+        // The second term is also the dot product between origin (a) and direction (b)
+        float b = 2.0f * glm::dot(origin, ray.Direction);
+        // Again, same w this one
+        float c = glm::dot(origin, origin) - sphere.Radius * sphere.Radius;
+
+        // Quadratic formula
+        float discriminant = b * b - 4.0f * a * c;
+
+        // If there was a discriminant, we hit the sphere with this ray (that corresponds to this pixel)
+        if (discriminant < 0.0f)
+            continue;
+
+        // Get the solutions - we only calculate the cloests
+        float closestT = (-b - glm::sqrt(discriminant)) / (2.0f * a);
+
+        if (closestT < hitDistance){
+            hitDistance = closestT;
+            closestSphere = &sphere;
+        }
+
+    }
+
+    if (!closestSphere) return glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+
+    glm::vec3 origin = ray.Origin - closestSphere->Position;
     
-    // a, b, c how they appear in the quadratic formula
-    // float a = coord.x * coord.x + coord.y * coord.y + coord.z * coord.z; // This is just the dot product
-    float a = glm::dot(ray.Direction, ray.Direction);
-    // The second term is also the dot product between origin (a) and direction (b)
-    float b = 2.0f * glm::dot(origin, ray.Direction);
-    // Again, same w this one
-    float c = glm::dot(origin, origin) - sphere.Radius * sphere.Radius;
 
-    // Quadratic formula
-    float discriminant = b * b - 4.0f * a * c;
-
-    // If there was a discriminant, we hit the sphere with this ray (that corresponds to this pixel)
-    if (discriminant < 0.0f)
-        return glm::vec4( 0, 0, 0, 1);
-
-    // Get the solutions - we only calculate the cloests
-    float closestT = (-b - glm::sqrt(discriminant)) / (2.0f * a);
-
-    glm::vec3 hitPosition = origin + ray.Direction * closestT;
+    glm::vec3 hitPosition = origin + ray.Direction * hitDistance;
 
     // Get the normal vector to the sphere at the hit position.
     // The vector points from the origin to the hit position, since its just a sphere.
@@ -108,7 +124,7 @@ glm::vec4 Renderer::TraceRay(const Scene &scene, const Ray &ray){
     lightDirection = glm::normalize(lightDirection);
     float light = std::max(glm::dot(normalToSphere, -lightDirection), 0.0f);
 
-    glm::vec3 sphereColor = sphere.Albedo * light;
+    glm::vec3 sphereColor = closestSphere->Albedo * light;
     return glm::vec4(sphereColor, 1.0f);
 
 }
