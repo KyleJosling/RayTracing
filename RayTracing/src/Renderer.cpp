@@ -1,6 +1,6 @@
 #include "Renderer.h"
 #include "Walnut/Random.h"
-#include <iostream>
+#include <cstring>
 
 namespace Utils{
     static uint32_t ConvertToRGBA(const glm::vec4& color){
@@ -25,12 +25,16 @@ void Renderer::OnResize(uint32_t width, uint32_t height){
         // TODO fork the repo and add this function
         m_FinalImage->Resize(width, height);
 
+
     } else {
         m_FinalImage = std::make_shared<Walnut::Image>(width, height, Walnut::ImageFormat::RGBA);
     }
 
     delete[] m_ImageData;
     m_ImageData = new uint32_t[width * height];
+
+    delete[] m_AccumulationData;
+    m_AccumulationData = new glm::vec4[width * height];
 
 }
 
@@ -40,18 +44,36 @@ void Renderer::Render(const Scene &scene, const Camera &camera){
     m_ActiveCamera = &camera;
 
 
+    if (m_FrameIndex == 1) {
+        memset(m_AccumulationData,
+            0, 
+            m_FinalImage->GetWidth() * m_FinalImage->GetHeight() * sizeof(glm::vec4));
+    }
+
     // Render pixels
     for (uint32_t y = 0; y < m_FinalImage->GetHeight(); y++){
 
         for (uint32_t x = 0; x < m_FinalImage->GetWidth(); x++) {
 
             glm::vec4 color = PerPixel(x, y);
-            color = glm::clamp(color, glm::vec4(0.0f), glm::vec4(1.0f));
+            // Accumulate the colors to form a smoother image
+            m_AccumulationData[x + y * m_FinalImage->GetWidth()] += color;
+
+            // Normalize the color + clamp it
+            glm::vec4 accumulatedColor = m_AccumulationData[x + y * m_FinalImage->GetWidth()];
+            accumulatedColor /= (float)m_FrameIndex;
+            color = glm::clamp(accumulatedColor, glm::vec4(0.0f), glm::vec4(1.0f));
+
             m_ImageData[x + y * m_FinalImage->GetWidth()] = Utils::ConvertToRGBA(color);
         }
     }
 
     m_FinalImage->SetData(m_ImageData);
+
+    if (m_Settings.Accumulate)
+        m_FrameIndex++;
+    else
+        m_FrameIndex = 1;
 
 }
 
@@ -115,33 +137,40 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y){
     glm::vec3 color(0.0f);
 
     float multiplier = 1.0f;
+
     int bounces = 5;
     for (int i = 0; i < bounces; i++){
 
         Renderer::HitPayload payload = TraceRay(ray);
         
         if (payload.HitDistance < 0.0f){
-			glm::vec3 skyColor = glm::vec3(0.6f, 0.7f, 0.9f);
+            glm::vec3 skyColor = glm::vec3(0.6f, 0.7f, 0.9f);
             color+= skyColor * multiplier;
             break;
         }
 
-		glm::vec3 lightDir = glm::normalize(glm::vec3(-1, -1, -1));
-		float lightIntensity = glm::max(glm::dot(payload.WorldNormal, -lightDir), 0.0f); // == cos(angle)
+        glm::vec3 lightDir = glm::normalize(glm::vec3(-1, -1, -1));
+        float lightIntensity = glm::max(glm::dot(payload.WorldNormal, -lightDir), 0.0f); // == cos(angle)
 
-		const Sphere& sphere = m_ActiveScene->Spheres[payload.ObjectIndex];
-		const Material &material = m_ActiveScene->Materials[sphere.MaterialIndex];
+        const Sphere& sphere = m_ActiveScene->Spheres[payload.ObjectIndex];
+        const Material &material = m_ActiveScene->Materials[sphere.MaterialIndex];
 
-		glm::vec3 sphereColor = material.Albedo;
-		sphereColor *= lightIntensity;
-		// color += sphereColor * multiplier;
+        glm::vec3 sphereColor = material.Albedo;
+        sphereColor *= lightIntensity;
+        color += sphereColor * multiplier;
 
-		multiplier *= 0.5f;
+        multiplier *= 0.5f;
 
         ray.Origin = payload.WorldPosition + payload.WorldNormal * 0.0001f;
-        if ( x == 100 && y == 100) std::cout << material.Roughness << std::endl;
-		ray.Direction = glm::reflect(ray.Direction,
-			payload.WorldNormal + material.Roughness * Walnut::Random::Vec3(-0.05f, 0.05f));
+        // if ( x == 100 && y == 100) std::cout << Walnut::Random::Vec3(-0.05f, 0.05f)[0] << std::endl;
+        // float v1 = -0.5f + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(0.5f+0.5f)));
+        // float v2 = -0.5f + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(0.5f+0.5f)));
+        // float v3 = -0.5f + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(0.5f+0.5f)));
+
+        // glm::vec3 rando = glm::vec3(v1, v2, v3);
+        ray.Direction = glm::reflect(ray.Direction,
+        payload.WorldNormal + (material.Roughness * Walnut::Random::Vec3(-0.5f, 0.5f)));
+        // payload.WorldNormal + (material.Roughness * rando));
 
 
     }
