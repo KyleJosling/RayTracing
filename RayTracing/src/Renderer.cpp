@@ -1,6 +1,9 @@
 #include "Renderer.h"
 #include "Walnut/Random.h"
 #include <cstring>
+#include <algorithm>
+#include <thread>
+#include <execution>
 
 namespace Utils{
     static uint32_t ConvertToRGBA(const glm::vec4& color){
@@ -36,6 +39,16 @@ void Renderer::OnResize(uint32_t width, uint32_t height){
     delete[] m_AccumulationData;
     m_AccumulationData = new glm::vec4[width * height];
 
+    m_ImageHorizontalIterator.resize(width);
+    for (uint32_t i = 0; i < width; i++){
+        m_ImageHorizontalIterator[i] = i;
+    }
+
+    m_ImageVerticalIterator.resize(height);
+    for (uint32_t i = 0; i < height; i++){
+        m_ImageVerticalIterator[i] = i;
+    }
+
 }
 
 void Renderer::Render(const Scene &scene, const Camera &camera){
@@ -50,6 +63,28 @@ void Renderer::Render(const Scene &scene, const Camera &camera){
             m_FinalImage->GetWidth() * m_FinalImage->GetHeight() * sizeof(glm::vec4));
     }
 
+#define MT 1
+#if MT
+    // 1920 x 1080 ~2m
+    std::for_each(std::execution::par, m_ImageVerticalIterator.begin(), m_ImageVerticalIterator.end(),
+        [this](uint32_t y){
+            std::for_each(std::execution::par, m_ImageHorizontalIterator.begin(), m_ImageHorizontalIterator.end(),
+                [this, y](uint32_t x){
+
+                    glm::vec4 color = PerPixel(x, y);
+                    // Accumulate the colors to form a smoother image
+                    m_AccumulationData[x + y * m_FinalImage->GetWidth()] += color;
+
+                    // Normalize the color + clamp it
+                    glm::vec4 accumulatedColor = m_AccumulationData[x + y * m_FinalImage->GetWidth()];
+                    accumulatedColor /= (float)m_FrameIndex;
+                    color = glm::clamp(accumulatedColor, glm::vec4(0.0f), glm::vec4(1.0f));
+
+                    m_ImageData[x + y * m_FinalImage->GetWidth()] = Utils::ConvertToRGBA(color);
+
+                });
+    });
+#else
     // Render pixels
     for (uint32_t y = 0; y < m_FinalImage->GetHeight(); y++){
 
@@ -67,6 +102,7 @@ void Renderer::Render(const Scene &scene, const Camera &camera){
             m_ImageData[x + y * m_FinalImage->GetWidth()] = Utils::ConvertToRGBA(color);
         }
     }
+#endif
 
     m_FinalImage->SetData(m_ImageData);
 

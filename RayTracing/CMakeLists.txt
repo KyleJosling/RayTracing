@@ -13,3 +13,4 @@ message(${CMAKE_SOURCE_DIR})
 
 include_directories(raytracing ${CMAKE_SOURCE_DIR}/Walnut/Walnut/src/)
 target_link_libraries(raytracing walnut)
+target_link_libraries(raytracing tbb)
