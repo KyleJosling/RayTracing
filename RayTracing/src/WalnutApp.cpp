@@ -103,7 +103,7 @@ public:
 		ImGui::End();
         ImGui::PopStyleVar();
 
-        Render();
+        // Render();
 	}
 
 	void Render()
