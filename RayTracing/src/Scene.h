@@ -1,7 +1,8 @@
 #pragma once
 
-
-#include <vector>
+#include <cuda_runtime.h>
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
 #include <glm/glm.hpp>
 
 struct Material {
@@ -20,7 +21,13 @@ struct Sphere{
 
 struct Scene {
 
-    std::vector<Sphere> Spheres;
-    std::vector<Material> Materials;
+    void OnUpdate();
+
+    // std::vector<Sphere> Spheres;
+    // std::vector<Material> Materials;
+    thrust::host_vector<Sphere> Spheres;
+    thrust::host_vector<Material> Materials;
+    thrust::device_vector<Sphere> DeviceSpheres;
+    thrust::device_vector<Material> DeviceMaterials;
 
 };

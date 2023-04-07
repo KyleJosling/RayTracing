@@ -1,4 +1,4 @@
-#include "Test.cuh"
+#include "GpuRenderer.cuh"
 #include <iostream>
 #include <math.h>
 #include <iostream>
@@ -33,7 +33,7 @@ void add(uint32_t * image_data, uint32_t width, uint32_t height)
 
 }
 
-void add_wrapper(uint32_t * image_data, const uint32_t &width, const uint32_t &height)
+void gpu_render(uint32_t * image_data, const uint32_t &width, const uint32_t &height)
 {
     uint32_t tx = 8;
     uint32_t ty = 8;

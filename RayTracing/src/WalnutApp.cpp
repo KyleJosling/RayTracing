@@ -13,13 +13,15 @@ class ExampleLayer : public Walnut::Layer
 public:
     ExampleLayer(): m_Camera(45.0f, -0.1f, 100.0f) 
 	{
-		Material& pinkSphere = m_Scene.Materials.emplace_back();
+		Material pinkSphere; 
 		pinkSphere.Albedo = { 1.0f, 0.0f, 1.0f };
 		pinkSphere.Roughness = 0.0f;
+		m_Scene.Materials.push_back(pinkSphere);
 
-		Material& blueSphere = m_Scene.Materials.emplace_back();
+		Material blueSphere;
 		blueSphere.Albedo = { 0.2f, 0.3f, 1.0f };
 		blueSphere.Roughness = 0.1f;
+		m_Scene.Materials.push_back(blueSphere);
 
 		{
 			Sphere sphere;
@@ -134,7 +136,7 @@ Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
 	Walnut::ApplicationSpecification spec;
 	spec.Name = "Ray Tracing";
 
-	Walnut::Application* app = new Walnut::Application(spec);
+	Walnut::Application* app = (Walnut::Application*)new Walnut::Application(spec);
 	app->PushLayer<ExampleLayer>();
 	app->SetMenubarCallback([app]()
 	{

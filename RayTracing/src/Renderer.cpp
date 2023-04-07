@@ -6,7 +6,6 @@
 #include <execution>
 
 #include <cuda_runtime.h>
-#include "Test.cuh"
 
 namespace Utils{
     static uint32_t ConvertToRGBA(const glm::vec4& color){
@@ -69,8 +68,7 @@ void Renderer::Render(const Scene &scene, const Camera &camera){
     }
 
     // Test
-    add_wrapper(m_ImageData, m_FinalImage->GetWidth(), m_FinalImage->GetHeight());
-    cudaDeviceSynchronize();
+    // gpu_render(m_ImageData, m_FinalImage->GetWidth(), m_FinalImage->GetHeight());
 
 #define MT 3
 #if MT == 1
