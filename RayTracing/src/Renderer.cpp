@@ -1,4 +1,5 @@
 #include "Renderer.h"
+#include "GpuRenderer.cuh"
 #include "Walnut/Random.h"
 #include <cstring>
 #include <algorithm>
@@ -68,7 +69,7 @@ void Renderer::Render(const Scene &scene, const Camera &camera){
     }
 
     // Test
-    // gpu_render(m_ImageData, m_FinalImage->GetWidth(), m_FinalImage->GetHeight());
+    gpu_render(m_ImageData, m_FinalImage->GetWidth(), m_FinalImage->GetHeight());
 
 #define MT 3
 #if MT == 1

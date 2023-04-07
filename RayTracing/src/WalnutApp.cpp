@@ -5,6 +5,7 @@
 
 #include "Renderer.h"
 #include "Camera.h"
+#include "Scene.h"
 
 #include <glm/gtc/type_ptr.hpp>
 
@@ -40,28 +41,28 @@ public:
 		}
 	}
 
-	virtual void OnUpdate(float ts) override{
-        if (m_Camera.OnUpdate(ts))
-			m_Renderer.ResetFrameIndex();
+    virtual void OnUpdate(float ts) override{
+    if (m_Camera.OnUpdate(ts))
+		m_Renderer.ResetFrameIndex();
 
     }
-	virtual void OnUIRender() override
-	{
-		ImGui::Begin("Settings");
-		ImGui::Text("Last render: %.3fms", m_LastRenderTime);
-		if (ImGui::Button("Render"))
-		{
-			Render();
-		}
+    virtual void OnUIRender() override
+    {
+        ImGui::Begin("Settings");
+        ImGui::Text("Last render: %.3fms", m_LastRenderTime);
+        if (ImGui::Button("Render"))
+        {
+            Render();
+        }
 
-		ImGui::Checkbox("Accumulate", &m_Renderer.GetSettings().Accumulate);
+        ImGui::Checkbox("Accumulate", &m_Renderer.GetSettings().Accumulate);
 
-		if (ImGui::Button("Reset"))
-			m_Renderer.ResetFrameIndex();
+        if (ImGui::Button("Reset"))
+            m_Renderer.ResetFrameIndex();
 
-		ImGui::End();
+        ImGui::End();
 
-		ImGui::Begin("Scene");
+        ImGui::Begin("Scene");
         for (size_t i = 0; i < m_Scene.Spheres.size(); i++){
 
             ImGui::PushID(i);
@@ -74,9 +75,9 @@ public:
             ImGui::PopID();
 
         }
-		ImGui::End();
+        ImGui::End();
 
-		ImGui::Begin("Scene");
+        ImGui::Begin("Scene");
         for (size_t i = 0; i < m_Scene.Materials.size(); i++){
 
             ImGui::PushID(i);
@@ -89,27 +90,27 @@ public:
             ImGui::PopID();
 
         }
-		ImGui::End();
+        ImGui::End();
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-		ImGui::Begin("Viewport");
+        ImGui::Begin("Viewport");
 
-		m_ViewportWidth = ImGui::GetContentRegionAvail().x;
-		m_ViewportHeight = ImGui::GetContentRegionAvail().y;
+        m_ViewportWidth = ImGui::GetContentRegionAvail().x;
+        m_ViewportHeight = ImGui::GetContentRegionAvail().y;
 
         auto image = m_Renderer.GetFinalImage();
-		if (image)
-		    ImGui::Image(image->GetDescriptorSet(), { (float)image->GetWidth(), (float)image->GetHeight() },
+        if (image)
+            ImGui::Image(image->GetDescriptorSet(), { (float)image->GetWidth(), (float)image->GetHeight() },
                     ImVec2(0,1), ImVec2(1,0));
 
-		ImGui::End();
+        ImGui::End();
         ImGui::PopStyleVar();
 
         Render();
-	}
+    }
 
-	void Render()
-	{
+    void Render()
+    {
         Walnut::Timer timer;
 
         m_Renderer.OnResize(m_ViewportWidth, m_ViewportHeight);
@@ -118,36 +119,36 @@ public:
 
         m_LastRenderTime = timer.ElapsedMillis();
 
-	}
+    }
 private:
 
     Renderer m_Renderer;
     Camera m_Camera;
     Scene m_Scene;
 
-	uint32_t m_ViewportWidth = 0;
+    uint32_t m_ViewportWidth = 0;
     uint32_t m_ViewportHeight = 0;
 
-	float m_LastRenderTime = 0.0f;
+    float m_LastRenderTime = 0.0f;
 };
 
 Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
 {
-	Walnut::ApplicationSpecification spec;
-	spec.Name = "Ray Tracing";
+    Walnut::ApplicationSpecification spec;
+    spec.Name = "Ray Tracing";
 
-	Walnut::Application* app = (Walnut::Application*)new Walnut::Application(spec);
-	app->PushLayer<ExampleLayer>();
-	app->SetMenubarCallback([app]()
-	{
-		if (ImGui::BeginMenu("File"))
-		{
-			if (ImGui::MenuItem("Exit"))
-			{
-				app->Close();
-			}
-			ImGui::EndMenu();
-		}
-	});
-	return app;
+    Walnut::Application* app = (Walnut::Application*)new Walnut::Application(spec);
+    app->PushLayer<ExampleLayer>();
+    app->SetMenubarCallback([app]()
+    {
+        if (ImGui::BeginMenu("File"))
+        {
+            if (ImGui::MenuItem("Exit"))
+            {
+                app->Close();
+            }
+            ImGui::EndMenu();
+        }
+    });
+    return app;
 }

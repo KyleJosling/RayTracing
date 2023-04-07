@@ -2,20 +2,22 @@ cmake_minimum_required(VERSION 3.16)
 
 #project(raytracing)
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CUDA_STANDARD 14)
+set(CMAKE_CUDA_STANDARD 17)
 
 find_package(CUDA REQUIRED)
 
-set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
+#set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 
 add_executable(raytracing
-    #src/GpuRenderer.cu
+    src/GpuRenderer.cu
     src/Scene.cu
     src/Renderer.cpp
     src/Camera.cpp
+    src/App.cu
 	src/WalnutApp.cpp
 )
-set_source_files_properties(src/Renderer.cpp PROPERTIES LANGUAGE CUDA)
+#set_source_files_properties(src/Renderer.cpp PROPERTIES LANGUAGE CUDA)
+target_compile_options(raytracing PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-Xcudafe --display_error_number --diag-suppress 20012>) 
 set_source_files_properties(src/WalnutApp.cpp PROPERTIES LANGUAGE CUDA)
 
 message(${CMAKE_SOURCE_DIR})
