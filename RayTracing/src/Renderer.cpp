@@ -69,7 +69,7 @@ void Renderer::Render(const Scene &scene, const Camera &camera){
     }
 
     // Test
-    gpu_render(m_ImageData, m_FinalImage->GetWidth(), m_FinalImage->GetHeight());
+    gpu_render(scene, camera, m_ImageData, m_FinalImage->GetWidth(), m_FinalImage->GetHeight());
 
 #define MT 3
 #if MT == 1
@@ -213,7 +213,7 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y){
 
         // glm::vec3 rando = glm::vec3(v1, v2, v3);
         ray.Direction = glm::reflect(ray.Direction,
-        payload.WorldNormal + (material.Roughness * Walnut::Random::Vec3(-0.5f, 0.5f)));
+            payload.WorldNormal + (material.Roughness * Walnut::Random::Vec3(-0.5f, 0.5f)));
         // payload.WorldNormal + (material.Roughness * rando));
 
 

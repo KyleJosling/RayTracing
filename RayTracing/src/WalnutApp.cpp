@@ -39,6 +39,9 @@ public:
 			sphere.MaterialIndex = 1;
 			m_Scene.Spheres.push_back(sphere);
 		}
+
+		// TODO - add update logic
+		m_Scene.OnUpdate();
 	}
 
     virtual void OnUpdate(float ts) override{
@@ -106,7 +109,7 @@ public:
         ImGui::End();
         ImGui::PopStyleVar();
 
-        Render();
+        // Render();
     }
 
     void Render()
