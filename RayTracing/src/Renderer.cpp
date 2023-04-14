@@ -35,7 +35,7 @@ void Renderer::OnResize(uint32_t width, uint32_t height){
     } else {
         m_FinalImage = std::make_shared<Walnut::Image>(width, height, Walnut::ImageFormat::RGBA);
     }
-#define MT 1
+#define MT 3
 #if MT == 3
     cudaFree(m_ImageData);
     cudaMallocManaged(&m_ImageData, width*height*sizeof(uint32_t));

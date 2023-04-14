@@ -153,16 +153,11 @@ uint32_t PerPixel(uint32_t x, uint32_t y, GpuPayload *gpu_payload){
   ray.Origin = gpu_payload->ray_position;
   ray.Direction = gpu_payload->ray_directions[x + y * gpu_payload->width];
 
-  if (x == 0 && y == 0){
-    printf("Ray Origin at X: %d, Y: %d is :%f \n", x, y, ray.Origin.z);
-    printf("Ray Direction at X: %d, Y: %d is :%f \n", x, y, ray.Direction.z);
-  }
-
   glm::vec3 color(0.0f);
 
   float multiplier = 1.0f;
 
-  int bounces = 5;
+  int bounces = 1;
   for (int i = 0; i < bounces; i++){
 
       HitPayload payload = TraceRay(ray, gpu_payload->spheres, gpu_payload->num_spheres);
@@ -177,9 +172,9 @@ uint32_t PerPixel(uint32_t x, uint32_t y, GpuPayload *gpu_payload){
       float lightIntensity = glm::max(glm::dot(payload.WorldNormal, -lightDir), 0.0f); // == cos(angle)
 
       const Sphere& sphere = gpu_payload->spheres[payload.ObjectIndex];
-      // const Material &material = active_scene->DeviceMaterials[sphere.MaterialIndex];
+      const Material &material = gpu_payload->materials[sphere.MaterialIndex];
 
-      glm::vec3 sphereColor = glm::vec3(1, 1, 0);
+      glm::vec3 sphereColor = material.Albedo; 
       sphereColor *= lightIntensity;
       color += sphereColor * multiplier;
 
@@ -189,7 +184,7 @@ uint32_t PerPixel(uint32_t x, uint32_t y, GpuPayload *gpu_payload){
 
       // glm::vec3 rando = glm::vec3(v1, v2, v3);
       ray.Direction = glm::reflect(ray.Direction,
-          payload.WorldNormal + (0.5f)); // TODO add randomness + material roughness
+          payload.WorldNormal + material.Roughness); // TODO add randomness + material roughness
   }
 
   return Utils::ConvertToRGBA(glm::vec4(color, 1.0f));
@@ -224,7 +219,7 @@ void gpu_render(const Scene &scene, const Camera &camera, uint32_t * image_data,
     payload_host->num_spheres = scene.DeviceSpheres.size();
     payload_host->materials = thrust::raw_pointer_cast(scene.DeviceMaterials.data());
     payload_host->num_materials = scene.DeviceMaterials.size();
-    payload_host->ray_position = glm::vec3(0.0f, 0.0f, 6.0f);
+    payload_host->ray_position = camera.GetPosition();
 
     GpuPayload * payload_device;
     cudaMalloc(&payload_device, sizeof(GpuPayload));

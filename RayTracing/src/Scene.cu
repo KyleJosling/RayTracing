@@ -2,6 +2,6 @@
 
 void Scene::OnUpdate(){
 
-    // DeviceMaterials = Materials;
+    DeviceMaterials = Materials;
     DeviceSpheres = Spheres;
 };
