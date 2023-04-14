@@ -35,11 +35,14 @@ void Renderer::OnResize(uint32_t width, uint32_t height){
     } else {
         m_FinalImage = std::make_shared<Walnut::Image>(width, height, Walnut::ImageFormat::RGBA);
     }
-
-    // delete[] m_ImageData;
+#define MT 1
+#if MT == 3
     cudaFree(m_ImageData);
     cudaMallocManaged(&m_ImageData, width*height*sizeof(uint32_t));
-    // m_ImageData = new uint32_t[width * height];
+#else
+    delete[] m_ImageData;
+    m_ImageData = new uint32_t[width * height];
+#endif
 
     delete[] m_AccumulationData;
     m_AccumulationData = new glm::vec4[width * height];
@@ -68,10 +71,7 @@ void Renderer::Render(const Scene &scene, const Camera &camera){
             m_FinalImage->GetWidth() * m_FinalImage->GetHeight() * sizeof(glm::vec4));
     }
 
-    // Test
-    gpu_render(scene, camera, m_ImageData, m_FinalImage->GetWidth(), m_FinalImage->GetHeight());
 
-#define MT 3
 #if MT == 1
     // 1920 x 1080 ~2m
     std::for_each(std::execution::par, m_ImageVerticalIterator.begin(), m_ImageVerticalIterator.end(),
@@ -110,6 +110,11 @@ void Renderer::Render(const Scene &scene, const Camera &camera){
             m_ImageData[x + y * m_FinalImage->GetWidth()] = Utils::ConvertToRGBA(color);
         }
     }
+#elif MT == 3
+
+    // Test
+    gpu_render(scene, camera, m_ImageData, m_FinalImage->GetWidth(), m_FinalImage->GetHeight());
+
 #endif
 
     m_FinalImage->SetData(m_ImageData);

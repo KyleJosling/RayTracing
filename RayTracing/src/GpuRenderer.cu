@@ -66,13 +66,82 @@ uint32_t another_method(float u, float v){
   return result;
 }
 
-__device__ 
-HitPayload TraceRay(Ray ray){
-
-  // TODO everything is a miss rn
+__device__
+HitPayload Miss(Ray &ray){
   HitPayload payload;
   payload.HitDistance = -1.0f;
   return payload;
+}
+
+__device__
+HitPayload ClosestHit(Ray &ray, float hitDistance, int objectIndex, const Sphere *spheres){
+
+  HitPayload payload;
+  payload.HitDistance = hitDistance;
+  payload.ObjectIndex = objectIndex;
+
+  const Sphere &closestSphere = spheres[objectIndex];
+
+  glm::vec3 origin = ray.Origin - closestSphere.Position;
+  payload.WorldPosition = origin + ray.Direction * hitDistance;
+  payload.WorldNormal = glm::normalize(payload.WorldPosition);
+
+  
+  payload.WorldPosition+= closestSphere.Position;
+
+
+  return payload;
+}
+
+__device__ 
+HitPayload TraceRay(Ray ray, const Sphere * spheres, int num_spheres){
+
+    // (bx^2 + by^2 + bz^2)t^2 + (2(axbx + ayby + azbz))t + (ax^2 + ay^2 + az^2- r^2) = 0
+    // Solving for t, the distance along the ray where it intersects w the sphere
+    // a -> origin of ray, b -> direction of ray
+    // r is the radius of the sphere
+
+    int closestSphere = -1;
+    float hitDistance = FLT_MAX;
+
+    for (size_t i = 0; i < num_spheres; i++){
+
+        const Sphere &sphere = spheres[i];
+
+        glm::vec3 origin = ray.Origin - sphere.Position;
+
+        // a, b, c how they appear in the quadratic formula
+        // float a = coord.x * coord.x + coord.y * coord.y + coord.z * coord.z; // This is just the dot product
+        float a = glm::dot(ray.Direction, ray.Direction);
+        // The second term is also the dot product between origin (a) and direction (b)
+        float b = 2.0f * glm::dot(origin, ray.Direction);
+        // Again, same w this one
+        float c = glm::dot(origin, origin) - sphere.Radius * sphere.Radius;
+
+        // Quadratic formula
+        float discriminant = b * b - 4.0f * a * c;
+
+        // If there was a discriminant, we hit the sphere with this ray (that corresponds to this pixel)
+        if (discriminant < 0.0f)
+            continue;
+
+        // Get the solutions - we only calculate the cloests
+        float closestT = (-b - glm::sqrt(discriminant)) / (2.0f * a);
+
+        if (closestT > 0.0f && closestT < hitDistance){
+            hitDistance = closestT;
+            closestSphere = (int)i;
+        }
+
+    }
+
+    if (closestSphere < 0)
+        return Miss(ray); // Send to our Miss shader
+
+
+    return ClosestHit(ray, hitDistance, closestSphere, spheres);
+
+
 }
 
 __device__ 
@@ -96,7 +165,7 @@ uint32_t PerPixel(uint32_t x, uint32_t y, GpuPayload *gpu_payload){
   int bounces = 5;
   for (int i = 0; i < bounces; i++){
 
-      HitPayload payload = TraceRay(ray);
+      HitPayload payload = TraceRay(ray, gpu_payload->spheres, gpu_payload->num_spheres);
       
       if (payload.HitDistance < 0.0f){
           glm::vec3 skyColor = glm::vec3(0.6f, 0.7f, 0.9f);
@@ -110,7 +179,7 @@ uint32_t PerPixel(uint32_t x, uint32_t y, GpuPayload *gpu_payload){
       const Sphere& sphere = gpu_payload->spheres[payload.ObjectIndex];
       // const Material &material = active_scene->DeviceMaterials[sphere.MaterialIndex];
 
-      glm::vec3 sphereColor = glm::vec3(0, 1, 0);
+      glm::vec3 sphereColor = glm::vec3(1, 1, 0);
       sphereColor *= lightIntensity;
       color += sphereColor * multiplier;
 
@@ -137,10 +206,6 @@ void add(GpuPayload *gpu_payload)
   if (x >= gpu_payload->width || y >= gpu_payload->height) return;
 
   gpu_payload->image_data[x + y * gpu_payload->width] = PerPixel(x, y, gpu_payload);
-  // gpu_payload->image_data[x + y * gpu_payload->width] =  another_method((float)x/(float)gpu_payload->width, (float)y/(float)gpu_payload->height);
-
-  // accumulation_data[x + y * width] = PerPixel(x, y); TODO
-
 }
 
 void gpu_render(const Scene &scene, const Camera &camera, uint32_t * image_data, const uint32_t &width, const uint32_t &height)
