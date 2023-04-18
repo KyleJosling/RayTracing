@@ -16,7 +16,7 @@ public:
 	{
 		Material pinkSphere; 
 		pinkSphere.Albedo = { 1.0f, 0.0f, 1.0f };
-		pinkSphere.Roughness = 0.0f;
+		pinkSphere.Roughness = 0.4f;
 		m_Scene.Materials.push_back(pinkSphere);
 
 		Material blueSphere;

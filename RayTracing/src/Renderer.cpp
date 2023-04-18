@@ -39,13 +39,17 @@ void Renderer::OnResize(uint32_t width, uint32_t height){
 #if MT == 3
     cudaFree(m_ImageData);
     cudaMallocManaged(&m_ImageData, width*height*sizeof(uint32_t));
+
+    cudaFree(m_AccumulationData);
+    cudaMallocManaged(&m_AccumulationData, width*height*sizeof(glm::vec4));
 #else
     delete[] m_ImageData;
     m_ImageData = new uint32_t[width * height];
-#endif
 
     delete[] m_AccumulationData;
     m_AccumulationData = new glm::vec4[width * height];
+#endif
+
 
     m_ImageHorizontalIterator.resize(width);
     for (uint32_t i = 0; i < width; i++){
@@ -65,10 +69,17 @@ void Renderer::Render(const Scene &scene, const Camera &camera){
     m_ActiveCamera = &camera;
 
 
+
     if (m_FrameIndex == 1) {
+        #if MT != 3
         memset(m_AccumulationData,
             0, 
             m_FinalImage->GetWidth() * m_FinalImage->GetHeight() * sizeof(glm::vec4));
+        #else
+        cudaMemset(m_AccumulationData,
+            0,
+            m_FinalImage->GetWidth() * m_FinalImage->GetHeight() * sizeof(glm::vec4));
+        #endif
     }
 
 
@@ -113,7 +124,7 @@ void Renderer::Render(const Scene &scene, const Camera &camera){
 #elif MT == 3
 
     // Test
-    gpu_render(scene, camera, m_ImageData, m_FinalImage->GetWidth(), m_FinalImage->GetHeight());
+    gpu_render(scene, camera, m_ImageData, m_AccumulationData, m_FinalImage->GetWidth(), m_FinalImage->GetHeight(), m_FrameIndex);
 
 #endif
 
