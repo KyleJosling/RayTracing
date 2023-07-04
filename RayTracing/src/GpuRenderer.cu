@@ -7,6 +7,7 @@
 #include <thrust/device_vector.h>
 #include <curand_kernel.h>
 
+#include "Utils.cuh"
 #include "Scene.h"
 #include "Camera.h"
 #include "Ray.h"
@@ -22,6 +23,7 @@ __global__ void setupCurand(unsigned int seed) {
     curand_init(seed, idx, 0, &rand_state);
 }
 
+// TODO move this to utils file
 namespace Utils{
   __device__
   static uint32_t ConvertToRGBA(const glm::vec4& color){
@@ -40,6 +42,31 @@ namespace Utils{
     float rand2 = curand_uniform(&rand_state) - 0.5f;
     float rand3 = curand_uniform(&rand_state) - 0.5f;
     return glm::vec3(rand1, rand2, rand3);
+  }
+
+  __device__
+  static uint32_t PCG_Hash(uint32_t input){
+
+    uint32_t state = input * 747796405u + 2891336453u;
+    uint32_t word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+  }
+
+  // Pass seed by reference so we can make repeat function calls
+  // with same seed variable and get a different output each time
+  __device__
+  static float RandomFloat(uint32_t &seed){
+    seed = PCG_Hash(seed);
+    return (float)seed / (float)UINT32_MAX;
+  }
+
+  __device__
+  glm::vec3 InUnitSphere(uint32_t &seed){
+
+    float rand1 = (RandomFloat(seed) * 2.0f) - 1.0f;
+    float rand2 = (RandomFloat(seed) * 2.0f) - 1.0f;
+    float rand3 = (RandomFloat(seed) * 2.0f) - 1.0f;
+    return glm::normalize(glm::vec3(rand1, rand2, rand3));
   }
 
 }
@@ -171,47 +198,47 @@ glm::vec4 PerPixel(uint32_t x, uint32_t y, GpuPayload *gpu_payload){
   // ray.Direction = m_ActiveCamera->GetRayDirections()[x + y * m_FinalImage->GetWidth()];
   ray.Origin = gpu_payload->ray_position;
   ray.Direction = gpu_payload->ray_directions[x + y * gpu_payload->width];
+  uint32_t seed = x + y * gpu_payload->width;
+  seed *= gpu_payload->frame_index;
 
-  glm::vec3 color(0.0f);
+  glm::vec3 light(0.0f);
 
-  float multiplier = 1.0f;
+  glm::vec3 contribution(1.0f); // The amount of colour contribution that our ray carries
 
   int bounces = 5;
   for (int i = 0; i < bounces; i++){
 
-      HitPayload payload = TraceRay(ray, gpu_payload->spheres, gpu_payload->num_spheres);
-      
-      if (payload.HitDistance < 0.0f){
-          glm::vec3 skyColor = glm::vec3(0.6f, 0.7f, 0.9f);
-          color+= skyColor * multiplier;
-          break;
-      }
+    seed+=i;
 
-      glm::vec3 lightDir = glm::normalize(glm::vec3(-1, -1, -1));
-      float lightIntensity = glm::max(glm::dot(payload.WorldNormal, -lightDir), 0.0f); // == cos(angle)
+    HitPayload payload = TraceRay(ray, gpu_payload->spheres, gpu_payload->num_spheres);
+    
+    if (payload.HitDistance < 0.0f){
+        glm::vec3 skyColor = glm::vec3(0.6f, 0.7f, 0.9f);
+        // light+= skyColor * contribution;
+        break;
+    }
 
-      const Sphere& sphere = gpu_payload->spheres[payload.ObjectIndex];
-      const Material &material = gpu_payload->materials[sphere.MaterialIndex];
+    const Sphere& sphere = gpu_payload->spheres[payload.ObjectIndex];
+    const Material &material = gpu_payload->materials[sphere.MaterialIndex];
 
-      glm::vec3 sphereColor = material.Albedo; 
-      sphereColor *= lightIntensity;
-      color += sphereColor * multiplier;
+    // light += material.Albedo * contribution;
 
-      multiplier *= 0.5f;
+    contribution *= material.Albedo;
+    light += material.EmissionColor * material.EmissionPower; // Emission is color * power
 
-      ray.Origin = payload.WorldPosition + payload.WorldNormal * 0.0001f;
-
-      ray.Direction = glm::reflect(ray.Direction,
-          payload.WorldNormal + (material.Roughness * Utils::Random())); // TODO add randomness + material roughness
-          //payload.WorldNormal + (0.5f)); // TODO add randomness + material roughness
+    ray.Origin = payload.WorldPosition + payload.WorldNormal * 0.0001f;
+    // ray.Direction = glm::reflect(ray.Direction,
+    //     payload.WorldNormal + (material.Roughness * Utils::Random())); // TODO add randomness + material roughness
+    //     //payload.WorldNormal + (0.5f)); // TODO add randomness + material roughness
+    // - Emission + emissive materials vid
+    ray.Direction = glm::normalize(Utils::InUnitSphere(seed) + payload.WorldNormal); 
   }
 
-  return glm::vec4(color, 1.0f);
+  return glm::vec4(light, 1.0f);
 }
 
-// Kernel function to add the elements of two arrays
 __global__
-void add(GpuPayload *gpu_payload)
+void process(GpuPayload *gpu_payload)
 {
 
   // Initialize curand
@@ -255,20 +282,20 @@ void gpu_render(const Scene &scene, const Camera &camera, uint32_t * image_data,
     payload_host->ray_position = camera.GetPosition();
 
     GpuPayload * payload_device;
-    cudaMalloc(&payload_device, sizeof(GpuPayload));
-    cudaMemcpy(payload_device, payload_host, sizeof(GpuPayload), cudaMemcpyHostToDevice);
+    checkCudaErrors(cudaMalloc(&payload_device, sizeof(GpuPayload)));
+    checkCudaErrors(cudaMemcpy(payload_device, payload_host, sizeof(GpuPayload), cudaMemcpyHostToDevice));
 
     uint32_t tx = 8;
     uint32_t ty = 8;
     dim3 numBlocks((width + tx - 1)/tx, (height + ty -1) / ty); 
     dim3 blockSize(tx, ty);
 
-    if (frame_index == 1){
+    if (frame_index == 2){
       setupCurand<<<numBlocks, blockSize>>>(0);
     }
 
-    add<<<numBlocks, blockSize>>>(payload_device);
-    cudaDeviceSynchronize();
-    cudaMemcpy(payload_host, payload_device, sizeof(GpuPayload), cudaMemcpyDeviceToHost);
+    process<<<numBlocks, blockSize>>>(payload_device);
+    checkCudaErrors(cudaDeviceSynchronize());
+    checkCudaErrors(cudaMemcpy(payload_host, payload_device, sizeof(GpuPayload), cudaMemcpyDeviceToHost));
     // cudaFree(payload);
 }

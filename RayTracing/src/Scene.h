@@ -7,9 +7,11 @@
 
 struct Material {
 
-    glm::vec3 Albedo;
+    glm::vec3 Albedo {1.0f};
     float Roughness = 0.5f;
     float Metallic = 0.0f;
+    glm::vec3 EmissionColor{ 0.0f };
+    float EmissionPower = 0.0f;
 };
 
 struct Sphere{
